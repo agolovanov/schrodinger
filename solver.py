@@ -1,6 +1,7 @@
 import numpy as _np
 import numba as _numba
 
+
 class Solver():
     psi = None
     x = None
@@ -20,7 +21,10 @@ class Solver():
         if self.n_points % 2 == 0:
             self.n_points += 1
         self.x = _np.linspace(- (self.n_points // 2) * dx, (self.n_points // 2) * dx, self.n_points)
-        self.potential = potential
+        if potential is not None:
+            self.potential = potential
+        else:
+            self.potential = _numba.vectorize(nopython=True)(lambda t, x: 0.0)
         self.psi = _np.zeros(self.x.shape, dtype=_np.complex)
 
     def set_psi(self, psi):
@@ -36,10 +40,11 @@ class Solver():
         else:
             self.psi = psi(self.x) + 1j * 0.0
 
-    def iterate(self, dt):
+    def iterate(self, dt, t):
         """
-        Iterates the system over a single time step `dt`.
+        Iterates the system over a single time step `dt` from the starting time `t`.
         :param dt:
+        :param t:
         :return:
         """
         raise NotImplementedError()
@@ -66,19 +71,21 @@ class Solver():
             if (output_dt is not None) and (i * dt >= output_dt * output_i):
                 ts.append(i * dt)
                 psis.append(self.psi.copy())
-            self.iterate(dt)
+                output_i += 1
+            self.iterate(dt, i * dt)
         return (_np.array(ts), psis)
 
 
-class EulerSolverDelta(Solver):
+class EulerSolver(Solver):
     delta_depth = 0.0
     dpsi = None
 
     def __init__(self, x_max, dx, potential=None, delta_depth=0.0):
         """
-        Eurerian solver with delta potential of depth `delta_depth`.
+        Eulerian solver with delta potential of depth `delta_depth`.
         :param x_max:
         :param dx:
+        :param potential:
         :param delta_depth:
         """
         Solver.__init__(self, x_max, dx, potential)
@@ -87,15 +94,17 @@ class EulerSolverDelta(Solver):
 
     @staticmethod
     @_numba.jit(nopython=True)
-    def __iterate(psi, dpsi, dt, dx, n_points, delta_depth):
+    def __iterate(psi, dpsi, dt, dx, n_points, potential, delta_depth):
         dpsi[0] = 0.5 * 1j * (psi[1] + psi[-1] - 2 * psi[0]) / dx ** 2
         dpsi[-1] = 0.5 * 1j * (psi[0] + psi[-2] - 2 * psi[-1]) / dx ** 2
         center = n_points // 2
         for i in range(1, n_points - 1):
-            dpsi[i] = 0.5 * 1j * (psi[i + 1] + psi[i - 1] - 2 * psi[i]) / dx ** 2
+            dpsi[i] = 0.5 * 1j * (psi[i + 1] + psi[i - 1] - 2 * psi[i]) / dx ** 2 - 1j * potential[i]
         for i in range(n_points):
             psi[i] += dpsi[i] * dt
-        psi[center] = (psi[center - 1] + psi[center + 1]) / (2 - 2 * delta_depth * dx)
+        if delta_depth != 0.0:
+            psi[center] = (psi[center - 1] + psi[center + 1]) / (2 - 2 * delta_depth * dx)
 
-    def iterate(self, dt):
-        EulerSolverDelta.__iterate(self.psi, self.dpsi, dt, self.dx, self.n_points, self.delta_depth)
+    def iterate(self, dt, t):
+        EulerSolver.__iterate(self.psi, self.dpsi, dt, self.dx, self.n_points, self.potential(t, self.x),
+                              self.delta_depth)
