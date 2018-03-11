@@ -1,9 +1,10 @@
 import numpy as _np
 import numba as _numba
+import potential as _potential
 
 
 class Solver():
-    psi = None
+    __psi = None
     x = None
     dx = None
     n_points = None
@@ -21,11 +22,13 @@ class Solver():
         if self.n_points % 2 == 0:
             self.n_points += 1
         self.x = _np.linspace(- (self.n_points // 2) * dx, (self.n_points // 2) * dx, self.n_points)
-        if potential is not None:
-            self.potential = potential
-        else:
-            self.potential = _numba.vectorize(nopython=True)(lambda t, x: 0.0)
-        self.psi = _np.zeros(self.x.shape, dtype=_np.complex)
+        if potential is None:
+            self.potential = _numba.vectorize(nopython=True)(lambda t, x: 0.0j)
+        elif isinstance(potential, _potential.Potential):
+            self.potential = potential.get_potential()
+            if isinstance(potential, _potential.DeltaPotential):
+                self.delta_depth = potential.get_depth()
+        self.__psi = _np.zeros(self.x.shape, dtype=_np.complex)
 
     def set_psi(self, psi):
         """
@@ -36,9 +39,9 @@ class Solver():
         if isinstance(psi, tuple):
             if len(psi) != 2:
                 raise ValueError(f"Tuple of length 2 expected, got {len(psi0)}")
-            self.psi = psi[0](self.x) + 1j * psi[1](self.x)
+            self.__psi = psi[0](self.x) + 1j * psi[1](self.x)
         else:
-            self.psi = psi(self.x) + 1j * 0.0
+            self.__psi = psi(self.x) + 1j * 0.0
 
     def iterate(self, dt, t):
         """
@@ -70,7 +73,7 @@ class Solver():
         for i in range(iterations):
             if (output_dt is not None) and (i * dt >= output_dt * output_i):
                 ts.append(i * dt)
-                psis.append(self.psi.copy())
+                psis.append(self.__psi.copy())
                 output_i += 1
             self.iterate(dt, i * dt)
         return (_np.array(ts), psis)
@@ -78,19 +81,7 @@ class Solver():
 
 class EulerSolver(Solver):
     delta_depth = 0.0
-    dpsi = None
-
-    def __init__(self, x_max, dx, potential=None, delta_depth=0.0):
-        """
-        Eulerian solver with delta potential of depth `delta_depth`.
-        :param x_max:
-        :param dx:
-        :param potential:
-        :param delta_depth:
-        """
-        Solver.__init__(self, x_max, dx, potential)
-        self.delta_depth = delta_depth
-        self.dpsi = _np.zeros(self.psi.shape, dtype=_np.complex)
+    __dpsi = None
 
     @staticmethod
     @_numba.jit(nopython=True)
@@ -106,5 +97,5 @@ class EulerSolver(Solver):
             psi[center] = (psi[center - 1] + psi[center + 1]) / (2 - 2 * delta_depth * dx)
 
     def iterate(self, dt, t):
-        EulerSolver.__iterate(self.psi, self.dpsi, dt, self.dx, self.n_points, self.potential(t, self.x),
+        EulerSolver.__iterate(self.__psi, self.__dpsi, dt, self.dx, self.n_points, self.potential(t, self.x),
                               self.delta_depth)
