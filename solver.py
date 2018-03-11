@@ -1,25 +1,29 @@
 import numpy as _np
 import numba as _numba
 import potential as _potential
-
+import scipy.sparse as _sparse
 
 class Solver():
     _psi = None
     x = None
     dx = None
+    dt = None
     n_points = None
     potential = None
     stationary = False
+    delta_depth = 0.0
 
-    def __init__(self, x_max, dx, potential=None, stationary=False):
+    def __init__(self, x_max, dx, dt, potential=None, stationary=False):
         """
-        Creates a solver for the interval [-x_max, x_max] with the spatial step `dx`.
+        Creates a solver for the interval [-x_max, x_max] with a spatial step `dx` and a time step `dt`.
         :param x_max:
         :param dx:
+        :param dt:
         :param potential:
         :param stationary: if True, the potential is considered constant in time
         """
         self.dx = dx
+        self.dt = dt
         n1 = int(x_max / dx)
         if n1 * dx < x_max - 0.01 * dx:
             n1 += 1
@@ -52,25 +56,24 @@ class Solver():
         else:
             self._psi = psi(self.x) + 1j * 0.0
 
-    def iterate(self, dt, t):
+    def iterate(self, t):
         """
-        Iterates the system over a single time step `dt` from the starting time `t`.
-        :param dt:
+        Iterates the system over a single time step from the starting time `t`.
         :param t:
         :return:
         """
         raise NotImplementedError()
 
-    def execute(self, t_max, dt, output_dt=None, psi0=None):
+    def execute(self, t_max, output_dt=None, psi0=None):
         """
-        Calculates the system up to `t_max` with timestep `dt` for the initial function `psi0`.
+        Calculates the system up to `t_max` for the initial function `psi0`.
         Returns a list of times and solutions with the interval `output_dt`
         :param t_max:
-        :param dt:
         :param output_dt:
         :param psi0: if None, current psi will be used.
         :return: A tuple of times and psi-functions.
         """
+        dt = self.dt
         if psi0 is not None:
             self.set_psi(psi0)
         if output_dt is not None and output_dt < dt:
@@ -84,12 +87,11 @@ class Solver():
                 ts.append(i * dt)
                 psis.append(self._psi.copy())
                 output_i += 1
-            self.iterate(dt, i * dt)
+            self.iterate(i * dt)
         return (_np.array(ts), psis) if output_dt is not None else self._psi.copy()
 
 
 class EulerSolver(Solver):
-    delta_depth = 0.0
     __dpsi = None
     __potential_x = None
 
@@ -112,6 +114,22 @@ class EulerSolver(Solver):
         if delta_depth != 0.0:
             psi[center] = (psi[center - 1] + psi[center + 1]) / (2 - 2 * delta_depth * dx)
 
-    def iterate(self, dt, t):
+    def iterate(self, t):
         potential = self.__potential_x if self.stationary else self.potential(t, self.x)
-        EulerSolver.__iterate(self._psi, self.__dpsi, dt, self.dx, self.n_points, potential, self.delta_depth)
+        EulerSolver.__iterate(self._psi, self.__dpsi, self.dt, self.dx, self.n_points, potential, self.delta_depth)
+
+
+class CrankNicolsonSolver(Solver):
+    __potential_x = None
+    __matrix = None
+    __dim = None
+
+    def __init__(self, x_max, dx, potential=None, stationary=False):
+        Solver.__init__(x_max, dx, potential, stationary)
+        if self.stationary:
+            self.__potential_x = self.potential(self.x)
+            self.__dim = len(self.x)
+            self.__matrix = _sparse.dok_matrix((self.__dim, self.__dim))
+
+    def iterate(self, t):
+        pass
