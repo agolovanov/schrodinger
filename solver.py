@@ -146,7 +146,7 @@ class CrankNicolsonSolver(Solver):
             dx = self.dx
             psi = self._psi
             b = psi / dt + 0.25j * (_np.roll(psi, 1) + _np.roll(psi, -1) - 2 * psi) / dx ** 2 \
-                - 0.5j * self.__potential_x
+                - 0.5j * self.__potential_x * psi
             self._psi = _spsolve(self.__matrix, b)
         else:
             raise Exception("Non-stationary CN not implemented yet")
