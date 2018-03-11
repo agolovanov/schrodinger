@@ -2,6 +2,7 @@ import numpy as _np
 import numba as _numba
 import potential as _potential
 import scipy.sparse as _sparse
+from scipy.sparse.linalg import spsolve as _spsolve
 
 class Solver():
     _psi = None
@@ -95,10 +96,11 @@ class EulerSolver(Solver):
     __dpsi = None
     __potential_x = None
 
-    def __init__(self, x_max, dx, potential=None, stationary=False):
-        Solver.__init__(self, x_max, dx, potential, stationary)
+    def __init__(self, x_max, dx, dt, potential=None, stationary=False):
+        Solver.__init__(self, x_max, dx, dt, potential, stationary)
         if self.stationary:
             self.__potential_x = self.potential(self.x)
+            self.__potential_x[self.n_points // 2] -= self.delta_depth / self.dx
         self.__dpsi = _np.zeros(self.x.shape, dtype=_np.complex)
 
     @staticmethod
@@ -106,13 +108,10 @@ class EulerSolver(Solver):
     def __iterate(psi, dpsi, dt, dx, n_points, potential, delta_depth):
         dpsi[0] = 0.5 * 1j * (psi[1] + psi[-1] - 2 * psi[0]) / dx ** 2
         dpsi[-1] = 0.5 * 1j * (psi[0] + psi[-2] - 2 * psi[-1]) / dx ** 2
-        center = n_points // 2
         for i in range(1, n_points - 1):
             dpsi[i] = 0.5 * 1j * (psi[i + 1] + psi[i - 1] - 2 * psi[i]) / dx ** 2 - 1j * potential[i] * psi[i]
         for i in range(n_points):
             psi[i] += dpsi[i] * dt
-        if delta_depth != 0.0:
-            psi[center] = (psi[center - 1] + psi[center + 1]) / (2 - 2 * delta_depth * dx)
 
     def iterate(self, t):
         potential = self.__potential_x if self.stationary else self.potential(t, self.x)
@@ -122,14 +121,32 @@ class EulerSolver(Solver):
 class CrankNicolsonSolver(Solver):
     __potential_x = None
     __matrix = None
-    __dim = None
 
-    def __init__(self, x_max, dx, potential=None, stationary=False):
-        Solver.__init__(x_max, dx, potential, stationary)
+    def __init__(self, x_max, dx, dt, potential=None, stationary=False):
+        Solver.__init__(self, x_max, dx, dt, potential, stationary)
         if self.stationary:
             self.__potential_x = self.potential(self.x)
-            self.__dim = len(self.x)
-            self.__matrix = _sparse.dok_matrix((self.__dim, self.__dim))
+            self.__potential_x[self.n_points // 2] -= self.delta_depth / self.dx
+            dim = len(self.x)
+            A = _sparse.dok_matrix((dim, dim), dtype=_np.complex)
+            dt = self.dt
+            dx = self.dx
+            for i in range(dim):
+                A[i, i] = 1.0 / dt + 0.5j / dx ** 2 + 0.5j * self.__potential_x[i]
+                A[i, i-1] = -0.25j / dx ** 2
+            for i in range(dim-1):
+                A[i, i + 1] = -0.25j / dx ** 2
+            A[dim-1, 0] = -0.25j / dx ** 2
+            A = _sparse.csc_matrix(A)
+            self.__matrix = A
 
     def iterate(self, t):
-        pass
+        if self.stationary:
+            dt = self.dt
+            dx = self.dx
+            psi = self._psi
+            b = psi / dt + 0.25j * (_np.roll(psi, 1) + _np.roll(psi, -1) - 2 * psi) / dx ** 2 \
+                - 0.5j * self.__potential_x
+            self._psi = _spsolve(self.__matrix, b)
+        else:
+            raise Exception("Non-stationary CN not implemented yet")
