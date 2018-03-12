@@ -60,3 +60,31 @@ class DeltaPotential(Potential):
 
     def get_depth(self):
         return self.depth
+
+
+class QuadraticPotential(Potential):
+    frequency = 0.0
+
+    def __init__(self, frequency=1.0):
+        """
+        Describes a harmonic oscillator with V(x) = omega ** 2 * x ** 2 / 2 with omega equal to `frequency`
+        :param frequency:
+        """
+        self.frequency = frequency
+
+    def get_potential(self):
+        return lambda x: 0.5 * self.frequency ** 2 * x ** 2
+
+    def get_eigenenergy(self, number=0):
+        return (number + 0.5) * self.frequency
+
+    def get_eigenfunction(self, number=0):
+        from scipy.special import hermite
+        from math import factorial, sqrt, pi
+        n = number
+        w = self.frequency
+        return lambda x: 0j + hermite(n)(sqrt(w) * x) * _np.exp(- 0.5 * w * x ** 2) * \
+                         ((w / pi) ** 0.25) / sqrt(2 ** n * factorial(n))
+
+    def get_frequency(self):
+        return self.frequency
