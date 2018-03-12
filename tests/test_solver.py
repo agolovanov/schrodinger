@@ -42,7 +42,7 @@ def test_cn_delta():
 
         e0 = v.get_eigenenergy()
         tmax = - 2 * np.pi / e0
-        dt = tmax / 1000
+        dt = tmax / 500
 
         s = solver.CrankNicolsonSolver(20 / d, 0.1 / d, dt, v)
         psi0 = v.get_eigenfunction()
@@ -62,7 +62,7 @@ def test_cn_delta():
             np.testing.assert_allclose(psi, psi1, atol=0.05)
 
 
-def test_cn_quadratic():
+def _test_quadratic(solver_class):
     frequencies = [0.1, 1.0, 7.5]
 
     levels = range(10)
@@ -72,9 +72,9 @@ def test_cn_quadratic():
         for l in levels:
             e = v.get_eigenenergy(l)
             tmax = 2 * np.pi / e
-            dt = tmax / 1000
+            dt = tmax / 100
 
-            s = solver.CrankNicolsonSolver(20 / f, 0.05 / f, dt, v)
+            s = solver_class(20 / f, 0.05 / f, dt, v)
 
             psi0 = v.get_eigenfunction(l)
             psi0_value = psi0(s.x)
@@ -92,3 +92,11 @@ def test_cn_quadratic():
                 np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.02)
 
                 np.testing.assert_allclose(psi, psi1, atol=0.05)
+
+
+def test_cn_quadratic():
+    _test_quadratic(solver.CrankNicolsonSolver)
+
+
+def test_sohs_quadratic():
+    _test_quadratic(solver.SplitOperatorHalfSpectralSolver)

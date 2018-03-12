@@ -4,6 +4,7 @@ import potential as _potential
 import scipy.sparse as _sparse
 from scipy.sparse.linalg import spsolve as _spsolve
 
+
 class Solver():
     _psi = None
     x = None
@@ -150,3 +151,28 @@ class CrankNicolsonSolver(Solver):
             self._psi = _spsolve(self.__matrix, b)
         else:
             raise Exception("Non-stationary CN not implemented yet")
+
+
+class SplitOperatorHalfSpectralSolver(Solver):
+    __potential_exponent = None
+    __momentum_exponent = None
+
+    def __init__(self, x_max, dx, dt, potential=None, stationary=False):
+        from scipy.fftpack import fftfreq
+
+        Solver.__init__(self, x_max, dx, dt, potential, stationary)
+        if self.stationary:
+            v = self.potential(self.x)
+            v[self.n_points // 2] -= self.delta_depth / self.dx
+            self.__potential_exponent = _np.exp(-0.5j * v * dt)
+            p = 2.0 * _np.pi * fftfreq(len(self.x)) / self.dx
+            self.__momentum_exponent = _np.exp(-0.5j * p ** 2 * dt)
+
+    def iterate(self, t):
+        from scipy.fftpack import fft, ifft
+        if self.stationary:
+            psi = self.__potential_exponent * self._psi
+            psi = ifft(self.__momentum_exponent * fft(psi))
+            self._psi = self.__potential_exponent * psi
+        else:
+            raise Exception("Non stationary half-spectral SO not implemented yet")
