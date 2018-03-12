@@ -60,3 +60,35 @@ def test_cn_delta():
             np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.02)
 
             np.testing.assert_allclose(psi, psi1, atol=0.05)
+
+
+def test_cn_quadratic():
+    frequencies = [0.1, 1.0, 7.5]
+
+    levels = range(10)
+
+    for f in frequencies:
+        v = potential.QuadraticPotential(f)
+        for l in levels:
+            e = v.get_eigenenergy(l)
+            tmax = 2 * np.pi / e
+            dt = tmax / 1000
+
+            s = solver.CrankNicolsonSolver(20 / f, 0.05 / f, dt, v)
+
+            psi0 = v.get_eigenfunction(l)
+            psi0_value = psi0(s.x)
+            np.testing.assert_almost_equal(wavefunction.norm(s.x, psi0_value), 1, decimal=2)
+
+            times = [tmax, tmax / 2, tmax / 4]
+            psi_expected = [psi0_value, -psi0_value, psi0_value * np.exp(-0.5j * np.pi)]
+
+            for t, psi1 in zip(times, psi_expected):
+                psi = s.execute(t, psi0=psi0)
+                np.testing.assert_almost_equal(wavefunction.norm(s.x, psi), wavefunction.norm(s.x, psi0_value),
+                                               decimal=7,
+                                               err_msg=f"Norm not conserved for frequency {f}, level {l}")
+
+                np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.02)
+
+                np.testing.assert_allclose(psi, psi1, atol=0.05)
