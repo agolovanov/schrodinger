@@ -28,11 +28,11 @@ def test_euler_delta():
         np.testing.assert_almost_equal(wavefunction.norm(s.x, psi0_value), 1, decimal=2)
 
         psi = s.execute(tmax, psi0=psi0)
-        np.testing.assert_almost_equal(wavefunction.norm(s.x, psi), 1, decimal=2,
+        np.testing.assert_almost_equal(wavefunction.norm(s.x, psi), wavefunction.norm(s.x, psi0_value), decimal=3,
                                        err_msg=f"Norm not conserved for depth {d}")
 
-        print(np.max(np.abs(np.abs(psi) - np.abs(psi0_value))))
         np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.06)
+
 
 def test_cn_delta():
     depths = [0.2, 1.0, 5.0]
@@ -49,9 +49,14 @@ def test_cn_delta():
         psi0_value = psi0(s.x)
         np.testing.assert_almost_equal(wavefunction.norm(s.x, psi0_value), 1, decimal=2)
 
-        psi = s.execute(tmax, psi0=psi0)
-        np.testing.assert_almost_equal(wavefunction.norm(s.x, psi), 1, decimal=2,
-                                       err_msg=f"Norm not conserved for depth {d}")
+        times = [tmax, tmax / 2, tmax / 4]
+        psi_expected = [psi0_value, -psi0_value, psi0_value * np.exp(0.5j * np.pi)]
 
-        print(np.max(np.abs(np.abs(psi) - np.abs(psi0_value))))
-        np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.06)
+        for t, psi1 in zip(times, psi_expected):
+            psi = s.execute(t, psi0=psi0)
+            np.testing.assert_almost_equal(wavefunction.norm(s.x, psi), wavefunction.norm(s.x, psi0_value), decimal=7,
+                                           err_msg=f"Norm not conserved for depth {d}")
+
+            np.testing.assert_allclose(np.abs(psi), np.abs(psi0_value), atol=0.02)
+
+            np.testing.assert_allclose(psi, psi1, atol=0.05)
