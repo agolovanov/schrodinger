@@ -10,7 +10,7 @@ def test_delta_potential():
     depths = np.linspace(0.1, 10, 10)
     for d in depths:
         v = potential.DeltaPotential(d)
-        assert(v.get_depth() == d)
+        assert(v.get_delta_depth() == d)
 
         with pytest.raises(ValueError):
             v.get_eigenenergy(random.randint(1, 100))
@@ -62,3 +62,26 @@ def test_quadratic_orthogonality():
                 np.testing.assert_almost_equal(wavefunction.correlation(x, psi1, psi2), 0.0,
                                                err_msg=f'Functions for levels {l1} and {l2} are not orthogonal '
                                                        f'for frequency {f}')
+
+
+def test_uniform_field():
+    amps = [1.0, -2.0]
+    x = np.linspace(-10, 10, 1000)
+    for amp in amps:
+        v = potential.UniformField(amp)
+        with pytest.raises(ValueError):
+            v.get_eigenfunction()
+        with pytest.raises(ValueError):
+            v.get_eigenenergy()
+        np.testing.assert_allclose(-amp * x, v.get_potential()(x))
+
+        assert(v.get_delta_depth() == 0.0)
+
+        v = potential.UniformField(amp, potential=potential.QuadraticPotential(1.0))
+        value1 = - amp * x + 0.5 * x ** 2
+        value2 = v.get_potential()(x)
+        np.testing.assert_allclose(value1, value2)
+
+        v = potential.UniformField(amp, potential=potential.DeltaPotential(1.0))
+        np.testing.assert_allclose(-amp * x, v.get_potential()(x))
+        assert(v.get_delta_depth() == 1.0)

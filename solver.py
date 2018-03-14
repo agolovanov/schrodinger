@@ -39,8 +39,7 @@ class Solver():
         elif isinstance(potential, _potential.Potential):
             self.potential = potential.get_potential()
             self.stationary = True
-            if isinstance(potential, _potential.DeltaPotential):
-                self.delta_depth = potential.get_depth()
+            self.delta_depth = potential.get_delta_depth()
         else:
             self.potential = potential
         self._psi = _np.zeros(self.x.shape, dtype=_np.complex)
