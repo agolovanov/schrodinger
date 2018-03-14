@@ -4,7 +4,7 @@ import wavefunction
 
 def test_norm():
     phases = np.linspace(0, 2*np.pi, 20)
-    x = np.linspace(-100, 100, 10000)
+    x = np.linspace(-100, 100, 10001)
     for phase in phases:
         psi = np.exp(1j * phase) * np.power(2 / np.pi, 0.25) * np.exp(- x ** 2)
         norm = wavefunction.norm(x, psi)
@@ -16,7 +16,7 @@ def test_norm():
 
 
 def test_momentum_representation_planewave():
-    x = np.linspace(-100, 100, 10000)
+    x = np.linspace(-100, 100, 10001)
     l = (x[-1] - x[0] + x[1] - x[0])
     p0s = [10 * np.pi / l, 100 * np.pi / l, 1000 * np.pi / l]
     for p0 in p0s:
@@ -33,12 +33,30 @@ def test_momentum_representation_planewave():
         np.testing.assert_allclose(p0, p_max, err_msg=f"Spectral maximum {p_max} is not equal to expected {p0}")
 
 
+def test_coordinate_representation_planewave():
+    p = np.linspace(-100, 100, 10001)
+    l = (p[-1] - p[0] + p[1] - p[0])
+    x0s = [10 * np.pi / l, 100 * np.pi / l, 1000 * np.pi / l]
+    for x0 in x0s:
+        psi_p = np.exp(-1.0j * p * x0) / np.sqrt(l)
+        np.testing.assert_array_almost_equal(wavefunction.norm(p, psi_p), 1.0, decimal=4)
+
+        x, psi = wavefunction.coordinate_representation(p, psi_p)
+        np.testing.assert_equal(np.sort(x), x, err_msg="Array of x is not sorted")
+
+        np.testing.assert_array_almost_equal(wavefunction.norm(x, psi), 1.0, decimal=4,
+                                             err_msg="The norm is not conserved in coordinate representation")
+
+        x_max = x[np.argmax(np.abs(psi))]
+        np.testing.assert_allclose(x0, x_max, err_msg=f"Spectral maximum {x_max} is not equal to expected {x0}")
+
+
 def __gauss(x, x0, sigma):
     return (2 / np.pi / sigma ** 2) ** 0.25 * np.exp(- (x - x0) ** 2 / sigma ** 2) + 0.0j
 
 
 def test_momentum_representation_gauss():
-    x = np.linspace(-100, 100, 10000)
+    x = np.linspace(-100, 100, 10001)
     x0s = [0.0, -10.5, 5.0]
     sigmas = [1.0, 5.0, 0.1]
     for sigma in sigmas:
@@ -54,3 +72,37 @@ def test_momentum_representation_gauss():
 
             psi_p_expected = __gauss(p, 0.0, 2 / sigma) * np.exp(-1.0j * p * x0)
             np.testing.assert_allclose(psi_p, psi_p_expected, atol=0.02)
+
+
+def test_coordinate_representation_gauss():
+    p = np.linspace(-100, 100, 10001)
+    p0s = [0.0, -10.5, 5.0]
+    sigmas = [1.0, 5.0, 0.1]
+    for sigma in sigmas:
+        for p0 in p0s:
+            psi_p = __gauss(p, p0, 2 / sigma)
+            np.testing.assert_array_almost_equal(wavefunction.norm(p, psi_p), 1.0)
+
+            x, psi = wavefunction.coordinate_representation(p, psi_p)
+            np.testing.assert_equal(np.sort(x), x, err_msg="Array of x is not sorted")
+
+            np.testing.assert_array_almost_equal(wavefunction.norm(x, psi), 1.0,
+                                                 err_msg="The norm is not conserved in coordinate representation")
+
+            psi_expected = __gauss(x, 0.0, sigma) * np.exp(1.0j * p0 * x)
+            np.testing.assert_allclose(psi, psi_expected, atol=0.02)
+
+
+def test_two_representations_gauss():
+    x = np.linspace(-100, 100, 10001)
+    x0s = [0.0, -10.5, 5.0]
+    sigmas = [1.0, 5.0, 0.1]
+    for sigma in sigmas:
+        for x0 in x0s:
+            psi = __gauss(x, x0, sigma)
+            x1, psi1 = wavefunction.coordinate_representation(*wavefunction.momentum_representation(x, psi))
+
+            np.testing.assert_allclose(x, x1, err_msg=f"The array of x changed after two transforms for x0={x0}, "
+                                                      f"sigma={sigma}")
+            np.testing.assert_allclose(psi, psi1, err_msg=f"Wavefunction changed after two transforms for x0={x0}, "
+                                                          f"sigma={sigma}", atol=1e-7)
