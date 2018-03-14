@@ -47,11 +47,15 @@ class Solver():
 
     def set_psi(self, psi):
         """
-        Sets the psi-function. If `psi` is a tuple of functions, they define the real and imaginary parts, respectively.
-        If `psi` is a single function, than imaginary part is assumed to be zero.
-        :param psi:
+        Sets the psi-function.
+        :param psi: an array, a function, or a tuple of functions.
+        If `psi` is a tuple of functions, they define the real and imaginary parts, respectively.
         """
-        if isinstance(psi, tuple):
+        if isinstance(psi, _np.ndarray):
+            if psi.shape != self.x.shape:
+                raise ValueError(f"Shape of array of psi {psi.shape} is not the same as shape of x {x.shape}")
+            self._psi = psi
+        elif isinstance(psi, tuple):
             if len(psi) != 2:
                 raise ValueError(f"Tuple of length 2 expected, got {len(psi0)}")
             self._psi = psi[0](self.x) + 1j * psi[1](self.x)
