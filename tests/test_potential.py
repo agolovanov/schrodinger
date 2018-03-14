@@ -46,3 +46,19 @@ def test_quadratic_potential():
         psi0_expected = (f / np.pi) ** 0.25 * np.exp(- 0.5 * f * x ** 2)
 
         np.testing.assert_allclose(psi0_value, psi0_expected)
+
+
+def test_quadratic_orthogonality():
+    frequencies = [0.1, 1.0, 7.5]
+    x = np.linspace(-50, 50, 40000)
+    levels = range(10)
+
+    for f in frequencies:
+        v = potential.QuadraticPotential(f)
+        for l1 in levels:
+            for l2 in levels[l1+1:]:
+                psi1 = v.get_eigenfunction(l1)(x)
+                psi2 = v.get_eigenfunction(l2)(x)
+                np.testing.assert_almost_equal(wavefunction.correlation(x, psi1, psi2), 0.0,
+                                               err_msg=f'Functions for levels {l1} and {l2} are not orthogonal '
+                                                       f'for frequency {f}')

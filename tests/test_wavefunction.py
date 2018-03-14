@@ -106,3 +106,32 @@ def test_two_representations_gauss():
                                                       f"sigma={sigma}")
             np.testing.assert_allclose(psi, psi1, err_msg=f"Wavefunction changed after two transforms for x0={x0}, "
                                                           f"sigma={sigma}", atol=1e-7)
+
+
+def test_correlation():
+    x = np.linspace(-100, 100, 10001)
+    psi1 = __gauss(x, 0.0, 2.0)
+    phase_mult = np.exp(0.25j * np.pi)
+    psi2 = psi1 * phase_mult
+    np.testing.assert_allclose(wavefunction.norm(x, psi1), wavefunction.correlation(x, psi1, psi1))
+    np.testing.assert_allclose(wavefunction.norm(x, psi2), wavefunction.correlation(x, psi2, psi2))
+
+    np.testing.assert_allclose(wavefunction.norm(x, psi1) * phase_mult, wavefunction.correlation(x, psi1, psi2))
+    np.testing.assert_allclose(wavefunction.norm(x, psi1) * np.conj(phase_mult),
+                               wavefunction.correlation(x, psi2, psi1))
+
+
+def test_two_representations_correlation():
+    x = np.linspace(-100, 100, 10001)
+    x1 = 0.0
+    x2 = 3.0
+    sigma1 = 1.0
+    sigma2 = 5.0
+    psi1 = __gauss(x, x1, sigma1)
+    psi2 = __gauss(x, x2, sigma2)
+    p, psi1_p = wavefunction.momentum_representation(x, psi1)
+    _, psi2_p = wavefunction.momentum_representation(x, psi2)
+
+    corr1 = wavefunction.correlation(x, psi1, psi2)
+    corr2 = wavefunction.correlation(p, psi1_p, psi2_p)
+    np.testing.assert_almost_equal(corr1, corr2)

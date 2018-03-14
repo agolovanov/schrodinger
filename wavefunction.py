@@ -13,6 +13,19 @@ def norm(x, psi):
     return _np.sum(0.5 * (psi_sqr[1:] + psi_sqr[:-1]) * dx)
 
 
+def correlation(x, psi1, psi2):
+    """
+    Calculates a correlation between two functions defines as int(psi1* psi2 dx)
+    :param x:
+    :param psi1:
+    :param psi2:
+    :return:
+    """
+    corr_arr = _np.conj(psi1) * psi2
+    dx = x[1:] - x[:-1]
+    return _np.sum(0.5 * (corr_arr[1:] + corr_arr[:-1]) * dx)
+
+
 def momentum_representation(x, psi):
     """
     Converts a wavefunction psi(x) to the momentum representation
