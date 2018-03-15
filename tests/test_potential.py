@@ -12,6 +12,8 @@ def test_delta_potential():
         v = potential.DeltaPotential(d)
         assert(v.get_delta_depth() == d)
 
+        assert(v.get_number_of_levels() == 1)
+
         with pytest.raises(ValueError):
             v.get_eigenenergy(random.randint(1, 100))
 
@@ -31,6 +33,9 @@ def test_quadratic_potential():
     for f in frequencies:
         v = potential.QuadraticPotential(f)
         assert(v.get_frequency() == f)
+
+        with pytest.raises(Exception):
+            v.get_number_of_levels()
 
         for l in levels:
             e = v.get_eigenenergy(l)
@@ -69,6 +74,9 @@ def test_uniform_field():
     x = np.linspace(-10, 10, 1000)
     for amp in amps:
         v = potential.UniformField(amp)
+
+        assert(v.get_number_of_levels() == 0)
+
         with pytest.raises(ValueError):
             v.get_eigenfunction()
         with pytest.raises(ValueError):
@@ -85,3 +93,67 @@ def test_uniform_field():
         v = potential.UniformField(amp, potential=potential.DeltaPotential(1.0))
         np.testing.assert_allclose(-amp * x, v.get_potential()(x))
         assert(v.get_delta_depth() == 1.0)
+
+
+def test_square_potential():
+    widths = [1.0, 0.5, 2.0]
+    depths = [1.0, 5.0, 10.0]
+    x = np.linspace(-150, 150, 3000)
+
+    expected_levels = {
+        (1.0, 1.0): 1,
+        (0.5, 1.0): 1,
+        (2.0, 1.0): 2,
+        (1.0, 5.0): 3,
+        (0.5, 5.0): 2,
+        (2.0, 5.0): 5,
+        (1.0, 10.0): 3,
+        (0.5, 10.0): 2,
+        (2.0, 10.0): 6
+    }
+
+    from itertools import product
+    for V0, a in product(depths, widths):
+        v = potential.SquarePotential(V0, a)
+
+        assert v.get_depth() == V0, f"Depth {v.get_depth()} is not {V0}"
+        assert v.get_width() == a, f"Width {v.get_width()} is not {a}"
+        assert v.get_delta_depth() == 0.0, f"Delta depth {v.get_delta_depth()} is non-zero"
+
+        max_levels = v.get_number_of_levels()
+        assert max_levels == expected_levels[a, V0], f"Max levels {max_levels}, expected {expected_levels[a, V0]}"
+        with pytest.raises(ValueError):
+            v.get_eigenenergy(max_levels)
+        with pytest.raises(ValueError):
+            v.get_eigenfunction(max_levels)
+
+        assert v.get_potential()(0.0) == -V0
+        assert v.get_potential()(2 * a) == 0.0
+        assert v.get_potential()(-2 * a) == 0.0
+
+        energies = np.array([v.get_eigenenergy(i) for i in range(max_levels)])
+        np.testing.assert_equal(energies, np.sort(energies), err_msg=f"Energies aren't sorted for V0={V0}, a={a}")
+        assert np.all(energies < 0.0), f"Positive energies for V0={V0}, a={a}"
+        assert np.all(energies > -V0), f"Too low energies for V0={V0}, a={a}"
+
+        for i in range(max_levels):
+            psi = v.get_eigenfunction(i)(x)
+            np.testing.assert_almost_equal(wavefunction.norm(x, psi), 1.0, decimal=4,
+                                           err_msg=f"Eigenfunction {i} norm is incorrect for V0={V0}, a={a}")
+
+
+def test_square_potential_orthogonality():
+    from itertools import combinations
+    widths = [1.0, 2.0]
+    depths = [10.0, 5.0]
+    x = np.linspace(-15, 15, 3000)
+
+    for V0, a in zip(depths, widths):
+        v = potential.SquarePotential(V0, a)
+        assert v.get_depth() == V0, f"Depth {v.get_depth()} is not {V0}"
+        assert v.get_width() == a, f"Width {v.get_width()} is not {a}"
+
+        psis = [v.get_eigenfunction(n)(x) for n in range(v.get_number_of_levels())]
+        for psi1, psi2 in combinations(psis, 2):
+            np.testing.assert_almost_equal(wavefunction.correlation(x, psi1, psi2), 0.0,
+                                           err_msg="Non-orthogonal eigenfunctions for V0={V0}, a={a}")

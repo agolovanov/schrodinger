@@ -34,6 +34,12 @@ class Potential():
         """
         return self.delta_depth
 
+    def get_number_of_levels(self):
+        """
+        :return: the maximum number of levels in the potential or None if there are no levels
+        """
+        raise NotImplementedError
+
 
 class DeltaPotential(Potential):
     def __init__(self, depth):
@@ -64,6 +70,9 @@ class DeltaPotential(Potential):
                 return _np.sqrt(depth) * _np.exp(- depth * x) + 0j
         return tmp_function
 
+    def get_number_of_levels(self):
+        return 1
+
 
 class QuadraticPotential(Potential):
     frequency = 0.0
@@ -92,6 +101,9 @@ class QuadraticPotential(Potential):
     def get_frequency(self):
         return self.frequency
 
+    def get_number_of_levels(self):
+        raise Exception("Quadratic potential has an infinite number of levels")
+
 
 class UniformField(Potential):
     amplitude = 0.0
@@ -118,3 +130,80 @@ class UniformField(Potential):
 
     def get_eigenenergy(self, number=0):
         raise ValueError("No eigenstates in a uniform field")
+
+    def get_number_of_levels(self):
+        return 0
+
+
+class SquarePotential(Potential):
+    depth = 0.0
+    width = 0.0
+
+    def __init__(self, depth, width):
+        """
+        Potential V(x) = -V_0 for |x| < a, and 0.0 elsewhere.
+        "V_0" and "a" are determined by `depth` and `width`, respectively
+        :param depth:
+        :param width:
+        """
+        self.depth = depth
+        self.width = width
+
+    def get_potential(self):
+        V0 = self.depth
+        a = self.width
+        return _numba.vectorize(nopython=True)(lambda x: -V0 if _np.abs(x) < a else 0.0)
+
+    def get_number_of_levels(self):
+        return int(_np.floor(1 + 2 * _np.sqrt(2 * self.depth) * self.width / _np.pi))
+
+    def __calculate_k(self, number):
+        from scipy.optimize import brentq
+        func = lambda k: k * self.width + _np.arcsin(k / _np.sqrt(2 * self.depth)) - _np.pi * (number + 1) / 2
+        return brentq(func, 0, _np.sqrt(2 * self.depth))
+
+    def get_eigenenergy(self, number=0):
+        if number >= self.get_number_of_levels():
+            raise ValueError(f"Level number {number} does not exist. Only {self.get_number_of_levels()} levels.")
+        k = self.__calculate_k(number)
+        return -self.depth + 0.5 * k ** 2
+
+    def get_eigenfunction(self, number=0):
+        if number >= self.get_number_of_levels():
+            raise ValueError(f"Level number {number} does not exist. Only {self.get_number_of_levels()} levels.")
+        k = self.__calculate_k(number)
+        V0 = self.depth
+        a = self.width
+        alpha = _np.sqrt(2 * V0 - k ** 2)
+        if number % 2 == 0:
+            A = 1 / _np.sqrt(a + 0.5 * _np.sin(2 * k * a) / k + _np.cos(k * a) ** 2 / alpha)
+
+            @_numba.vectorize(nopython=True)
+            def psi(x):
+                if x < - a:
+                    return A * _np.cos(k * a) * _np.exp(alpha * (x + a))
+                elif x < a:
+                    return A * _np.cos(k * x)
+                else:
+                    return A * _np.cos(k * a) * _np.exp(-alpha * (x - a))
+
+            return psi
+        else:
+            A = 1 / _np.sqrt(a - 0.5 * _np.sin(2 * k * a) / k + _np.sin(k * a) ** 2 / alpha)
+
+            @_numba.vectorize(nopython=True)
+            def psi(x):
+                if x < -a:
+                    return -A * _np.sin(k * a) * _np.exp(alpha * (x + a))
+                elif x < a:
+                    return A * _np.sin(k * x)
+                else:
+                    return A * _np.sin(k * a) * _np.exp(-alpha * (x - a))
+
+            return psi
+
+    def get_depth(self):
+        return self.depth
+
+    def get_width(self):
+        return self.width
