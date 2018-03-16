@@ -38,7 +38,7 @@ class Solver():
             self.stationary = True
         elif isinstance(potential, _potential.Potential):
             self.potential = potential.get_potential()
-            self.stationary = True
+            self.stationary = potential.is_stationary()
             self.delta_depth = potential.get_delta_depth()
         else:
             self.potential = potential

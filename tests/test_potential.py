@@ -70,8 +70,10 @@ def test_quadratic_orthogonality():
 
 
 def test_uniform_field():
-    amps = [1.0, -2.0]
+    amps = [1.0, -2.0, lambda t: 0.5 * t]
+    t = 3.0
     x = np.linspace(-10, 10, 1000)
+
     for amp in amps:
         v = potential.UniformField(amp)
 
@@ -81,17 +83,27 @@ def test_uniform_field():
             v.get_eigenfunction()
         with pytest.raises(ValueError):
             v.get_eigenenergy()
-        np.testing.assert_allclose(-amp * x, v.get_potential()(x))
+        if callable(amp):
+            np.testing.assert_allclose(-amp(t) * x, v.get_potential()(t, x))
+        else:
+            np.testing.assert_allclose(-amp * x, v.get_potential()(x))
 
         assert(v.get_delta_depth() == 0.0)
 
         v = potential.UniformField(amp, potential=potential.QuadraticPotential(1.0))
-        value1 = - amp * x + 0.5 * x ** 2
-        value2 = v.get_potential()(x)
+        if callable(amp):
+            value1 = - amp(t) * x + 0.5 * x ** 2
+            value2 = v.get_potential()(t, x)
+        else:
+            value1 = - amp * x + 0.5 * x ** 2
+            value2 = v.get_potential()(x)
         np.testing.assert_allclose(value1, value2)
 
         v = potential.UniformField(amp, potential=potential.DeltaPotential(1.0))
-        np.testing.assert_allclose(-amp * x, v.get_potential()(x))
+        if callable(amp):
+            np.testing.assert_allclose(-amp(t) * x, v.get_potential()(t, x))
+        else:
+            np.testing.assert_allclose(-amp * x, v.get_potential()(x))
         assert(v.get_delta_depth() == 1.0)
 
 

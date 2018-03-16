@@ -40,6 +40,12 @@ class Potential():
         """
         raise NotImplementedError
 
+    def is_stationary(self):
+        """
+        :return: True if the potential does not depend on time, False otherwise
+        """
+        return True
+
 
 class DeltaPotential(Potential):
     def __init__(self, depth):
@@ -108,22 +114,31 @@ class QuadraticPotential(Potential):
 class UniformField(Potential):
     amplitude = 0.0
     potential = None
+    __stationary = True
 
     def __init__(self, amplitude, potential: Potential=None):
         """
-        Potenial in uniform electric field V(x) = - E * x + V0(x), where E is determined by `amplitude`, and V0(x) is
+        Potenial in uniform electric field V(x) = - E(t) * x + V0(x), where E(t) is determined by `amplitude`, and V0(x) is
         the initial potential
+        :param amplitude: either constant value or E(t)
         """
+        self.__stationary = not callable(amplitude)
         self.amplitude = amplitude
         if potential is not None:
             self.potential = potential
             self.delta_depth = potential.get_delta_depth()
 
     def get_potential(self):
-        if self.potential is None:
-            return lambda x: - self.amplitude * x
+        if self.__stationary:
+            if self.potential is None:
+                return lambda x: - self.amplitude * x
+            else:
+                return lambda x: - self.amplitude * x + self.potential.get_potential()(x)
         else:
-            return lambda x: - self.amplitude * x + self.potential.get_potential()(x)
+            if self.potential is None:
+                return lambda t, x: - self.amplitude(t) * x
+            else:
+                return lambda t, x: - self.amplitude(t) * x + self.potential.get_potential()(x)
 
     def get_eigenfunction(self, number=0):
         raise ValueError("No eigenstates in a uniform field")
@@ -133,6 +148,9 @@ class UniformField(Potential):
 
     def get_number_of_levels(self):
         return 0
+
+    def is_stationary(self):
+        return self.__stationary
 
 
 class SquarePotential(Potential):
