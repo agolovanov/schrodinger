@@ -177,14 +177,18 @@ class SplitOperatorHalfSpectralSolver(Solver):
             v = self.potential(self.x)
             v[self.n_points // 2] -= self.delta_depth / self.dx
             self.__potential_exponent = _np.exp(-0.5j * v * dt)
-            p = 2.0 * _np.pi * fftfreq(len(self.x)) / self.dx
-            self.__momentum_exponent = _np.exp(-0.5j * p ** 2 * dt)
+        p = 2.0 * _np.pi * fftfreq(len(self.x)) / self.dx
+        self.__momentum_exponent = _np.exp(-0.5j * p ** 2 * dt)
 
     def iterate(self, t):
         from scipy.fftpack import fft, ifft
         if self.stationary:
-            psi = self.__potential_exponent * self._psi
-            psi = ifft(self.__momentum_exponent * fft(psi))
-            self._psi = self.__potential_exponent * psi
+            pot_exp = self.__potential_exponent
         else:
-            raise Exception("Non stationary half-spectral SO not implemented yet")
+            v = self.potential(t + 0.5 * self.dt, self.x)
+            v[self.n_points // 2] -= self.delta_depth / self.dx
+            pot_exp = _np.exp(-0.5j * v * self.dt)
+
+        psi = pot_exp * self._psi
+        psi = ifft(self.__momentum_exponent * fft(psi))
+        self._psi = pot_exp * psi

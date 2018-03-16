@@ -102,7 +102,7 @@ def test_sohs_quadratic():
     _test_quadratic(solver.SplitOperatorHalfSpectralSolver)
 
 
-def test_cn_non_stationary():
+def _test_non_stationary(solver_class):
     v = potential.QuadraticPotential(1.0)
 
     e = v.get_eigenenergy()
@@ -110,10 +110,18 @@ def test_cn_non_stationary():
 
     tmax = 2 * np.pi / e
     dt = tmax / 100
-    s1 = solver.CrankNicolsonSolver(20, 0.05, dt, v)
-    s2 = solver.CrankNicolsonSolver(20, 0.05, dt, potential=lambda t,x: v.get_potential()(x), stationary=False)
+    s1 = solver_class(20, 0.05, dt, v)
+    s2 = solver_class(20, 0.05, dt, potential=lambda t,x: v.get_potential()(x), stationary=False)
 
     psi1 = s1.execute(tmax, psi0=psi0)
     psi2 = s2.execute(tmax, psi0=psi0)
 
     np.testing.assert_allclose(psi1, psi2, err_msg="Stationary and nonstationary methods give different answers")
+
+
+def test_cn_non_stationary():
+    _test_non_stationary(solver.CrankNicolsonSolver)
+
+
+def test_sohs_non_stationary():
+    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver)
