@@ -125,35 +125,44 @@ class EulerSolver(Solver):
 class CrankNicolsonSolver(Solver):
     __potential_x = None
     __matrix = None
+    __diagonal = 0.0j
 
     def __init__(self, x_max, dx, dt, potential=None, stationary=False):
         Solver.__init__(self, x_max, dx, dt, potential, stationary)
+        dim = len(self.x)
+        A = _sparse.dok_matrix((dim, dim), dtype=_np.complex)
+        dt = self.dt
+        dx = self.dx
+        self.__diagonal = 1.0 / dt + 0.5j / dx ** 2
+        for i in range(dim):
+            A[i, i] = self.__diagonal
+            A[i, i - 1] = -0.25j / dx ** 2
+        for i in range(dim - 1):
+            A[i, i + 1] = -0.25j / dx ** 2
+        A[dim - 1, 0] = -0.25j / dx ** 2
+        self.__matrix = _sparse.csc_matrix(A)
+
         if self.stationary:
             self.__potential_x = self.potential(self.x)
             self.__potential_x[self.n_points // 2] -= self.delta_depth / self.dx
-            dim = len(self.x)
-            A = _sparse.dok_matrix((dim, dim), dtype=_np.complex)
-            dt = self.dt
-            dx = self.dx
-            for i in range(dim):
-                A[i, i] = 1.0 / dt + 0.5j / dx ** 2 + 0.5j * self.__potential_x[i]
-                A[i, i-1] = -0.25j / dx ** 2
-            for i in range(dim-1):
-                A[i, i + 1] = -0.25j / dx ** 2
-            A[dim-1, 0] = -0.25j / dx ** 2
-            A = _sparse.csc_matrix(A)
-            self.__matrix = A
+            self.__matrix[_np.arange(dim), _np.arange(dim)] = self.__diagonal + 0.5j * self.__potential_x
 
     def iterate(self, t):
+        dt = self.dt
+        dx = self.dx
+        psi = self._psi
         if self.stationary:
-            dt = self.dt
-            dx = self.dx
-            psi = self._psi
-            b = psi / dt + 0.25j * (_np.roll(psi, 1) + _np.roll(psi, -1) - 2 * psi) / dx ** 2 \
-                - 0.5j * self.__potential_x * psi
-            self._psi = _spsolve(self.__matrix, b)
+            v = self.__potential_x
         else:
-            raise Exception("Non-stationary CN not implemented yet")
+            v = self.potential(t, self.x)
+            v -= self.delta_depth / self.dx
+            v2 = self.potential(t + self.dt, self.x)
+            dim = len(self.x)
+            self.__matrix[_np.arange(dim), _np.arange(dim)] = self.__diagonal + 0.5j * v2
+
+        b = psi / dt + 0.25j * (_np.roll(psi, 1) + _np.roll(psi, -1) - 2 * psi) / dx ** 2 \
+            - 0.5j * v * psi
+        self._psi = _spsolve(self.__matrix, b)
 
 
 class SplitOperatorHalfSpectralSolver(Solver):
