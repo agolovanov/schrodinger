@@ -102,16 +102,14 @@ def test_sohs_quadratic():
     _test_quadratic(solver.SplitOperatorHalfSpectralSolver)
 
 
-def _test_non_stationary(solver_class):
-    v = potential.QuadraticPotential(1.0)
-
+def _test_non_stationary(solver_class, v):
     e = v.get_eigenenergy()
     psi0 = v.get_eigenfunction()
 
     tmax = 2 * np.pi / e
     dt = tmax / 100
     s1 = solver_class(20, 0.05, dt, v)
-    s2 = solver_class(20, 0.05, dt, potential=lambda t,x: v.get_potential()(x), stationary=False)
+    s2 = solver_class(20, 0.05, dt, potential=potential.UniformField(lambda t: 0.0, potential=v))
 
     psi1 = s1.execute(tmax, psi0=psi0)
     psi2 = s2.execute(tmax, psi0=psi0)
@@ -120,8 +118,16 @@ def _test_non_stationary(solver_class):
 
 
 def test_cn_non_stationary():
-    _test_non_stationary(solver.CrankNicolsonSolver)
+    _test_non_stationary(solver.CrankNicolsonSolver, potential.QuadraticPotential(1.0))
 
 
 def test_sohs_non_stationary():
-    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver)
+    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.QuadraticPotential(1.0))
+
+
+def test_cn_non_stationary_delta():
+    _test_non_stationary(solver.CrankNicolsonSolver, potential.DeltaPotential(1.0))
+
+
+def test_sohs_non_stationary_delta():
+    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.DeltaPotential(1.0))
