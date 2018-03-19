@@ -155,8 +155,9 @@ class CrankNicolsonSolver(Solver):
             v = self.__potential_x
         else:
             v = self.potential(t, self.x)
-            v -= self.delta_depth / self.dx
+            v[self.n_points // 2] -= self.delta_depth / self.dx
             v2 = self.potential(t + self.dt, self.x)
+            v2[self.n_points // 2] -= self.delta_depth / self.dx
             dim = len(self.x)
             self.__matrix[_np.arange(dim), _np.arange(dim)] = self.__diagonal + 0.5j * v2
 
