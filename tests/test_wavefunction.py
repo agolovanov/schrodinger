@@ -2,16 +2,42 @@ import numpy as np
 import wavefunction
 
 
-def test_norm():
+def test_norm_1d():
     phases = np.linspace(0, 2*np.pi, 20)
     x = np.linspace(-100, 100, 10001)
     for phase in phases:
         psi = np.exp(1j * phase) * np.power(2 / np.pi, 0.25) * np.exp(- x ** 2)
         norm = wavefunction.norm(x, psi)
+        assert np.imag(norm) == 0.0, "Norm is not real"
+
         np.testing.assert_almost_equal(norm, 1.0)
 
         psi *= 4.0
         norm = wavefunction.norm(x, psi)
+        np.testing.assert_almost_equal(norm, 16.0)
+
+
+def test_norm_multidimensional():
+    x = np.linspace(0, 10, 200)
+    y = np.linspace(0, 20, 100)
+    z = np.linspace(0, 30, 50)
+    xx, yy, zz = np.meshgrid(x, y, z, indexing='ij')
+    f = np.ones(xx.shape) / np.sqrt(6000)
+    norm = wavefunction.norm((xx, yy, zz), f)
+    assert np.imag(norm) == 0.0, "Norm is not real"
+    np.testing.assert_almost_equal(norm, 1)
+
+    phases = np.linspace(0, 2*np.pi, 3)
+    x = np.linspace(-10, 10, 101)
+    for phase in phases:
+        xx, yy, zz = np.meshgrid(x, x, x, indexing='ij')
+        psi = np.exp(1j * phase) * np.power(2 / np.pi, 0.75) * np.exp(- xx ** 2 - yy ** 2 - zz ** 2)
+        norm = wavefunction.norm((xx, yy, zz), psi)
+        assert np.imag(norm) == 0.0, "Norm is not real"
+        np.testing.assert_almost_equal(norm, 1.0)
+
+        psi *= 4.0
+        norm = wavefunction.norm((xx, yy, zz), psi)
         np.testing.assert_almost_equal(norm, 16.0)
 
 

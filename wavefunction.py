@@ -1,29 +1,63 @@
 import numpy as _np
 
 
+def _integrate(x, f):
+    """
+    Calculates an integral of `f` over `x`.
+    If the dimension `N` of `f` is more than 1, than `x` should contain a tuple of `N` arrays of the same shape as `f`.
+    :param x: array or tuple of arrays of coordinates.
+    :param f: array of function values
+    :return: the value of the integral
+    """
+    if isinstance(x, _np.ndarray):
+        if x.shape != f.shape:
+            raise ValueError(f"Shapes of x {x.shape} and integrand {f.shape} are different")
+        return _np.trapz(f, x)
+    else:
+        dim = len(x)
+        if dim != len(f.shape):
+            raise ValueError(f"Dimensions of x {len(x)} and integrand {len(f.shape)} are different")
+        tmp = f
+        for i in range(dim):
+            # constructing a slice for indexing, e.g. x[1][0, :, 0] should give a 1D array of the 2nd coordinate values.
+            index = [0] * dim
+            index[i] = slice(None)
+            coord = x[i][index]
+            tmp = _np.trapz(tmp, coord, axis=0)
+        return tmp
+
+
 def norm(x, psi):
     """
     Calculates the norm of the wavefunction psi(x).
-    :param x: array of x coordinates.
+    Accepts an arbitrary dimension of the coordinate space.
+    If the dimension `N` of `psi1` and `psi2` is more than 1, than `x` should contain a tuple of `N` arrays of the same
+    shape as `psi1`.
+    :param x: array or tuple of arrays of coordinates.
+    The arrays are assumed to be constructed via `np.meshgrid` with `ij` indexing.
     :param psi: array of corresponding values of psi(x). 
     :return: the norm of the wavefunction
     """
-    psi_sqr = _np.abs(psi) ** 2
-    dx = x[1:] - x[:-1]
-    return _np.sum(0.5 * (psi_sqr[1:] + psi_sqr[:-1]) * dx)
+    return _integrate(x, _np.abs(psi) ** 2)
 
 
 def correlation(x, psi1, psi2):
     """
-    Calculates a correlation between two functions defines as int(psi1* psi2 dx)
-    :param x:
-    :param psi1:
-    :param psi2:
-    :return:
+    Calculates a correlation between two functions defined as int(psi1* psi2 dx)
+    Accepts an arbitrary dimension of the coordinate space.
+    If the dimension `N` of `psi1` and `psi2` is more than 1, than `x` should contain a tuple of `N` arrays of the same
+    shape as `psi1`.
+    :param x: array or tuple of arrays of coordinates.
+    The arrays are assumed to be constructed via `np.meshgrid` with `ij` indexing.
+    :param psi1: array of corresponding values of psi1(x)
+    :param psi2: same
+    :return: the correlation between the two wavefunctions
     """
+    if psi1.shape != psi2.shape:
+        raise ValueError(f"Shapes of psi1 {psi1.shape} and psi2 {psi2.shape} are different")
+
     corr_arr = _np.conj(psi1) * psi2
-    dx = x[1:] - x[:-1]
-    return _np.sum(0.5 * (corr_arr[1:] + corr_arr[:-1]) * dx)
+    return _integrate(x, corr_arr)
 
 
 def momentum_representation(x, psi):
