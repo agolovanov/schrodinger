@@ -9,7 +9,7 @@ def test_delta_potential():
     x = np.linspace(-50, 50, 40000)
     depths = np.linspace(0.1, 10, 10)
     for d in depths:
-        v = potential.DeltaPotential(d)
+        v = potential.DeltaPotential1D(d)
         assert(v.get_delta_depth() == d)
 
         assert(v.get_number_of_levels() == 1)
@@ -31,7 +31,7 @@ def test_quadratic_potential():
     levels = range(20)
 
     for f in frequencies:
-        v = potential.QuadraticPotential(f)
+        v = potential.QuadraticPotential1D(f)
         assert(v.get_frequency() == f)
 
         with pytest.raises(Exception):
@@ -59,7 +59,7 @@ def test_quadratic_orthogonality():
     levels = range(10)
 
     for f in frequencies:
-        v = potential.QuadraticPotential(f)
+        v = potential.QuadraticPotential1D(f)
         for l1 in levels:
             for l2 in levels[l1+1:]:
                 psi1 = v.get_eigenfunction(l1)(x)
@@ -75,7 +75,7 @@ def test_uniform_field():
     x = np.linspace(-10, 10, 1000)
 
     for amp in amps:
-        v = potential.UniformField(amp)
+        v = potential.UniformField1D(amp)
 
         assert(v.get_number_of_levels() == 0)
 
@@ -90,7 +90,7 @@ def test_uniform_field():
 
         assert(v.get_delta_depth() == 0.0)
 
-        v = potential.UniformField(amp, potential=potential.QuadraticPotential(1.0))
+        v = potential.UniformField1D(amp, potential=potential.QuadraticPotential1D(1.0))
         if callable(amp):
             value1 = - amp(t) * x + 0.5 * x ** 2
             value2 = v.get_potential()(t, x)
@@ -99,7 +99,7 @@ def test_uniform_field():
             value2 = v.get_potential()(x)
         np.testing.assert_allclose(value1, value2)
 
-        v = potential.UniformField(amp, potential=potential.DeltaPotential(1.0))
+        v = potential.UniformField1D(amp, potential=potential.DeltaPotential1D(1.0))
         if callable(amp):
             np.testing.assert_allclose(-amp(t) * x, v.get_potential()(t, x))
         else:
@@ -126,7 +126,7 @@ def test_square_potential():
 
     from itertools import product
     for V0, a in product(depths, widths):
-        v = potential.SquarePotential(V0, a)
+        v = potential.SquarePotential1D(V0, a)
 
         assert v.get_depth() == V0, f"Depth {v.get_depth()} is not {V0}"
         assert v.get_width() == a, f"Width {v.get_width()} is not {a}"
@@ -161,7 +161,7 @@ def test_square_potential_orthogonality():
     x = np.linspace(-15, 15, 3000)
 
     for V0, a in zip(depths, widths):
-        v = potential.SquarePotential(V0, a)
+        v = potential.SquarePotential1D(V0, a)
         assert v.get_depth() == V0, f"Depth {v.get_depth()} is not {V0}"
         assert v.get_width() == a, f"Width {v.get_width()} is not {a}"
 
@@ -169,3 +169,33 @@ def test_square_potential_orthogonality():
         for psi1, psi2 in combinations(psis, 2):
             np.testing.assert_almost_equal(wavefunction.correlation(x, psi1, psi2), 0.0,
                                            err_msg="Non-orthogonal eigenfunctions for V0={V0}, a={a}")
+
+
+def test_coulomb_potential():
+    x = np.linspace(-30, 30, 201)
+    xx, yy, zz = np.meshgrid(x, x, x, indexing='ij')
+    r = (xx, yy, zz)
+    levels = [
+        (1, 0, 0),
+        (2, 0, 0),
+        (2, 1, 1),
+        (2, 1, -1),
+        (3, 2, -1)
+    ]
+    v = potential.CoulombPotential()
+    psis = []
+
+    for l in levels:
+        e = v.get_eigenenergy(*l)
+        np.testing.assert_allclose(e, - 0.5 / l[0] ** 2)
+
+        psi = v.get_eigenfunction(*l)(*r)
+        psis.append(psi)
+
+        np.testing.assert_array_almost_equal(wavefunction.norm(r, psi), 1.0, decimal=3,
+                                             err_msg=f"Wavefunction norm for level {l} is not unity")
+
+    from itertools import combinations
+    for psi1, psi2 in combinations(psis, 2):
+        np.testing.assert_allclose(wavefunction.correlation(r, psi1, psi2), 0.0, atol=0.001,
+                                   err_msg=f"Non-orthogonal wavefunctions")

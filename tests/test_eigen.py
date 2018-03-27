@@ -10,7 +10,7 @@ def test_eigen_quadratic():
     levels = range(10)
 
     for f in freqs:
-        v = potential.QuadraticPotential(f)
+        v = potential.QuadraticPotential1D(f)
 
         es, psis = eigen.calculate_eigenstates(x, v.get_potential(), 10, 0.0)
         for i, psi in enumerate(psis):
@@ -34,7 +34,7 @@ def test_eigen_square():
     x = np.linspace(-100, 100, 10000)
 
     for a, V0 in zip(widths, depths):
-        v = potential.SquarePotential(V0, a)
+        v = potential.SquarePotential1D(V0, a)
 
         levels = v.get_number_of_levels()
         es, psis = eigen.calculate_eigenstates(x, v.get_potential(), levels, -V0)

@@ -2,13 +2,21 @@ import numpy as _np
 import numba as _numba
 
 
-class Potential():
+class Potential:
+    def is_stationary(self):
+        """
+        :return: True if the potential does not depend on time, False otherwise
+        """
+        return True
+
+
+class Potential1D(Potential):
     delta_depth = 0.0
 
     def get_potential(self):
         """
         Returns the function V(x) determining the potential
-        :return: 
+        :return:
         """
         raise NotImplementedError
 
@@ -40,14 +48,8 @@ class Potential():
         """
         raise NotImplementedError
 
-    def is_stationary(self):
-        """
-        :return: True if the potential does not depend on time, False otherwise
-        """
-        return True
 
-
-class DeltaPotential(Potential):
+class DeltaPotential1D(Potential1D):
     def __init__(self, depth):
         """
         Describes a potential V(x) = - depth * delta(x)
@@ -80,7 +82,7 @@ class DeltaPotential(Potential):
         return 1
 
 
-class QuadraticPotential(Potential):
+class QuadraticPotential1D(Potential1D):
     frequency = 0.0
 
     def __init__(self, frequency=1.0):
@@ -111,12 +113,12 @@ class QuadraticPotential(Potential):
         raise Exception("Quadratic potential has an infinite number of levels")
 
 
-class UniformField(Potential):
+class UniformField1D(Potential1D):
     amplitude = 0.0
     potential = None
     __stationary = True
 
-    def __init__(self, amplitude, potential: Potential=None):
+    def __init__(self, amplitude, potential: Potential1D=None):
         """
         Potenial in uniform electric field V(x) = - E(t) * x + V0(x), where E(t) is determined by `amplitude`, and V0(x) is
         the initial potential
@@ -153,7 +155,7 @@ class UniformField(Potential):
         return self.__stationary
 
 
-class SquarePotential(Potential):
+class SquarePotential1D(Potential1D):
     depth = 0.0
     width = 0.0
 
@@ -225,3 +227,73 @@ class SquarePotential(Potential):
 
     def get_width(self):
         return self.width
+
+
+class Potential3D(Potential):
+    def get_potential(self):
+        """
+        Returns the function V(r) determining the potential
+        :return:
+        """
+        raise NotImplementedError
+
+    def get_eigenenergy(self, **numbers):
+        """
+        Get the N=`number` energy level
+        :param number:
+        :return:
+        """
+        raise NotImplementedError
+
+    def get_eigenfunction(self, **numbers):
+        """
+        Get the Nth=`number` eigenfunction
+        :param number:
+        :return:
+        """
+        raise NotImplementedError
+
+
+def _r(x, y, z):
+    return _np.sqrt(x * x + y * y + z * z)
+
+
+def _theta(x, y, z):
+    return _np.arctan2(_np.sqrt(x * x + y * y), z)
+
+
+def _phi(x, y):
+    return _np.arctan2(y, x)
+
+
+class CoulombPotential(Potential3D):
+    @staticmethod
+    def r_func(n, l, r):
+        import math
+        from scipy.special import eval_genlaguerre
+        return 2 / n ** 2 * math.sqrt(math.factorial(n - l - 1) / math.factorial(n + l)) * \
+               _np.exp(-r / n) * (2 * r / n) ** l * eval_genlaguerre(n - l - 1, 2 * l + 1, 2 * r / n)
+
+    def get_potential(self):
+        return lambda x, y, z: - 1 / _r(x, y, z)
+
+    @staticmethod
+    def _check_numbers(n, l, m):
+        for x in (n, l, m):
+            if not isinstance(x, int):
+                raise ValueError(f"Number {x} is not integer")
+        if n < 1:
+            raise ValueError(f"Number n={n} must be positive")
+        if l < 0 or l >= n:
+            raise ValueError(f"Number l={l} should be from 0 to n={n}")
+        if abs(m) > l:
+            raise ValueError(f"Number m={m} should be from -{l} to {l} for l={l}")
+
+    def get_eigenenergy(self, n, l, m):
+        self._check_numbers(n, l, m)
+        return - 0.5 / n ** 2
+
+    def get_eigenfunction(self, n, l, m):
+        self._check_numbers(n, l, m)
+        from scipy.special import sph_harm
+        return lambda x, y, z: self.r_func(n, l, _r(x, y, z)) * sph_harm(m, l, _phi(x, y), _theta(x, y, z))

@@ -37,6 +37,8 @@ class Solver():
             self.potential = _numba.vectorize(nopython=True)(lambda x: 0.0j)
             self.stationary = True
         elif isinstance(potential, _potential.Potential):
+            if not isinstance(potential, _potential.Potential1D):
+                raise ValueError("Only 1D potentials are allowed")
             self.potential = potential.get_potential()
             self.stationary = potential.is_stationary()
             self.delta_depth = potential.get_delta_depth()

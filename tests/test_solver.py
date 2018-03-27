@@ -16,7 +16,7 @@ def test_euler_delta():
     depths = [0.2, 1.0, 5.0]
 
     for d in depths:
-        v = potential.DeltaPotential(d)
+        v = potential.DeltaPotential1D(d)
 
         e0 = v.get_eigenenergy()
         tmax = - 2 * np.pi / e0
@@ -38,7 +38,7 @@ def test_cn_delta():
     depths = [0.2, 1.0, 5.0]
 
     for d in depths:
-        v = potential.DeltaPotential(d)
+        v = potential.DeltaPotential1D(d)
 
         e0 = v.get_eigenenergy()
         tmax = - 2 * np.pi / e0
@@ -68,7 +68,7 @@ def _test_quadratic(solver_class):
     levels = range(10)
 
     for f in frequencies:
-        v = potential.QuadraticPotential(f)
+        v = potential.QuadraticPotential1D(f)
         for l in levels:
             e = v.get_eigenenergy(l)
             tmax = 2 * np.pi / e
@@ -109,7 +109,7 @@ def _test_non_stationary(solver_class, v):
     tmax = 2 * np.pi / e
     dt = tmax / 100
     s1 = solver_class(20, 0.05, dt, v)
-    s2 = solver_class(20, 0.05, dt, potential=potential.UniformField(lambda t: 0.0, potential=v))
+    s2 = solver_class(20, 0.05, dt, potential=potential.UniformField1D(lambda t: 0.0, potential=v))
 
     psi1 = s1.execute(tmax, psi0=psi0)
     psi2 = s2.execute(tmax, psi0=psi0)
@@ -118,16 +118,16 @@ def _test_non_stationary(solver_class, v):
 
 
 def test_cn_non_stationary():
-    _test_non_stationary(solver.CrankNicolsonSolver, potential.QuadraticPotential(1.0))
+    _test_non_stationary(solver.CrankNicolsonSolver, potential.QuadraticPotential1D(1.0))
 
 
 def test_sohs_non_stationary():
-    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.QuadraticPotential(1.0))
+    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.QuadraticPotential1D(1.0))
 
 
 def test_cn_non_stationary_delta():
-    _test_non_stationary(solver.CrankNicolsonSolver, potential.DeltaPotential(1.0))
+    _test_non_stationary(solver.CrankNicolsonSolver, potential.DeltaPotential1D(1.0))
 
 
 def test_sohs_non_stationary_delta():
-    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.DeltaPotential(1.0))
+    _test_non_stationary(solver.SplitOperatorHalfSpectralSolver, potential.DeltaPotential1D(1.0))
