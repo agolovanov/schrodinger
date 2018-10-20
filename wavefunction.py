@@ -22,7 +22,7 @@ def _integrate(x, f):
             # constructing a slice for indexing, e.g. x[1][0, :, 0] should give a 1D array of the 2nd coordinate values.
             index = [0] * dim
             index[i] = slice(None)
-            coord = x[i][index]
+            coord = x[i][tuple(index)]
             tmp = _np.trapz(tmp, coord, axis=0)
         return tmp
 
