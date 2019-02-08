@@ -129,7 +129,16 @@ class CrankNicolsonSolver(Solver):
     __matrix = None
     __diagonal = 0.0j
 
-    def __init__(self, x_max, dx, dt, potential=None, stationary=False):
+    def __init__(self, x_max, dx, dt, potential=None, stationary=False, vector_potential=None):
+        """
+        Creates a solver for the interval [-x_max, x_max] with a spatial step `dx` and a time step `dt`.
+        :param x_max:
+        :param dx:
+        :param dt:
+        :param potential:
+        :param stationary: if True, the potential is considered constant in time
+        :param vector_potential: if a function A(t), then A(t) p term will be added to the Hamiltonian.
+        """
         Solver.__init__(self, x_max, dx, dt, potential, stationary)
         dim = len(self.x)
         A = _sparse.dok_matrix((dim, dim), dtype=_np.complex)
@@ -143,6 +152,7 @@ class CrankNicolsonSolver(Solver):
             A[i, i + 1] = -0.25j / dx ** 2
         A[dim - 1, 0] = -0.25j / dx ** 2
         self.__matrix = _sparse.csc_matrix(A)
+        self.__vector_potential = vector_potential
 
         if self.stationary:
             self.__potential_x = self.potential(self.x)
@@ -165,6 +175,15 @@ class CrankNicolsonSolver(Solver):
 
         b = psi / dt + 0.25j * (_np.roll(psi, 1) + _np.roll(psi, -1) - 2 * psi) / dx ** 2 \
             - 0.5j * v * psi
+
+        if self.__vector_potential is not None:
+            vp_current = self.__vector_potential(t)
+            vp_next = self.__vector_potential(t + self.dt)
+            dim = len(self.x)
+            self.__matrix[_np.arange(dim), _np.roll(_np.arange(dim), -1)] = -0.25j / dx ** 2 + 0.25 * vp_next / dx
+            self.__matrix[_np.arange(dim), _np.roll(_np.arange(dim),  1)] = -0.25j / dx ** 2 - 0.25 * vp_next / dx
+            b -= 0.25 * (_np.roll(psi, -1) - _np.roll(psi, 1)) / dx * vp_current
+
         self._psi = _spsolve(self.__matrix, b)
 
 
