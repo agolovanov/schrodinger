@@ -50,7 +50,10 @@ def calculate_p_density(x, p, w):
     :param w:
     :return: p (1d array), |psi(p)|^2
     """
-    return p[1::2, 0], 0.5 * _np.sum(w, axis=1)[1::2] * __calculate_dx(x)
+    integral = _np.sum(w, axis=1) * __calculate_dx(x)
+    integral = 0.5 * (integral + _np.roll(integral, -1))
+    return p[1::2, 0], integral[1::2]
+
 
 def __calculate_dx(x):
     return x[0, 1] - x[0, 0]
